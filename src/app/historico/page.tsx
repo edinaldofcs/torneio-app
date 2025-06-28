@@ -38,14 +38,14 @@ export default function HistoricoPage() {
         return;
       }
 
-      const dados = (data as unknown as any[]).map((item) => ({
-    id: item.id,
-    etapa: item.etapa,
-    jogador1_id: item.jogador1_id,
-    jogador2_id: item.jogador2_id,
-    jogador1: item.jogador1?.[0] ?? item.jogador1 ?? { nome: "Desconhecido" },
-    jogador2: item.jogador2?.[0] ?? item.jogador2 ?? { nome: "Desconhecido" },
-  }));
+      const dados: Historico[] = (data as unknown as any[]).map((item) => ({
+      id: item.id,
+      etapa: item.etapa,
+      jogador1_id: item.jogador1_id,
+      jogador2_id: item.jogador2_id,
+      jogador1: item.jogador1?.[0] ?? item.jogador1 ?? { nome: "Desconhecido" },
+      jogador2: item.jogador2?.[0] ?? item.jogador2 ?? { nome: "Desconhecido" },
+    }));
 
       setHistorico(dados);
 
