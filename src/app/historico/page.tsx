@@ -74,8 +74,15 @@ export default function HistoricoPage() {
 };
 
 
-  if (loading) return <p>Carregando histórico...</p>;
-  if (etapas.length === 0) return <p className="w-full h-full flex items-center justify-center"><span>Nenhum confronto registrado ainda.</span></p>;
+  if (loading) return (
+  <p className="w-full h-full flex items-center justify-center">
+    <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
+    <span>Carregando histórico...</span>
+    </p>)
+  if (etapas.length === 0) return (<p className="w-full h-full flex items-center justify-center">
+    <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
+    <span>Nenhum confronto registrado ainda.</span>
+    </p>)
 
   const etapaAtual = etapas[etapaAtualIndex];
   const confrontosDaEtapa = historico.filter((h) => h.etapa === etapaAtual);

@@ -176,9 +176,12 @@ export default function Page() {
   }
 
   return (
-    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6  bg-gray-100">
+    
+    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6 ">
+        <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-10 -z-2" />
+
       {/* Jogadores cadastrados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh]">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2">
         <h2 className="text-lg font-semibold mb-4">Cadastrados</h2>
         <ul className="space-y-2">
           {cadastrados.map((j) => {
@@ -204,7 +207,7 @@ export default function Page() {
       </section>
 
       {/* Selecionados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh]">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2">
         <h2 className="text-lg font-semibold mb-4">Selecionados</h2>
         {selecionados.length === 0 ? (
           <p className="text-gray-500">Nenhum selecionado.</p>
@@ -226,7 +229,7 @@ export default function Page() {
       </section>
 
       {/* Duplas sorteadas */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] col-span-1">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] col-span-1 z-2">
         <h2 className="text-lg font-semibold mb-4">Duplas Sorteadas</h2>
         {duplas.length === 0 ? (
           <p className="text-gray-500">Nenhuma dupla sorteada ainda.</p>
@@ -242,7 +245,7 @@ export default function Page() {
       </section>
 
       {/* Botões */}
-      <section className="flex flex-col justify-between h-1/2">
+      <section className="flex flex-col justify-between h-1/2 z-2">
         <div className="bg-white rounded-lg shadow p-4 h-full flex flex-col justify-between">
           <div>
             <h2 className="text-lg font-semibold mb-4">Ação</h2>

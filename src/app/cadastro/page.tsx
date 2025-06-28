@@ -104,6 +104,7 @@ export default function Cadastro() {
 
   return (
     <main className="w-full mx-auto p-6 flex flex-col justify-between gap-10 md:flex-row">
+      <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
       {/* Lista numerada e editável */}
       <section className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-md p-6 overflow-auto max-h-[600px]">
         <h2 className="text-2xl font-semibold mb-6 text-gray-800">
