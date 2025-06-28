@@ -79,6 +79,7 @@ export default function Page() {
   function embaralhar<T>(array: T[]): T[] {
   return [...array].sort(() => Math.random() - 0.5);
 }
+
   // Backtracking para formar duplas válidas:
   // - todos jogam uma única vez
   // - nenhum par se repetiu antes
