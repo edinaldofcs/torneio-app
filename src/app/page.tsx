@@ -13,30 +13,15 @@ interface Dupla {
   jogador2: Jogador;
 }
 
-type HistoricoItem = {
-  jogador1_id: number;
-  jogador2_id: number;
-  etapa: number;
-};
-
 export default function Page() {
   const [cadastrados, setCadastrados] = useState<Jogador[]>([]);
   const [selecionados, setSelecionados] = useState<Jogador[]>([]);
   const [duplas, setDuplas] = useState<Dupla[]>([]);
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [mensagem, setMensagem] = useState("");
+
+  // Histórico de confrontos: pares de ids já enfrentados (chave "id1-id2" ordenados)
   const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(new Set());
-
-  // Helper para gerar chave única de dupla ordenada
-  function gerarChaveDupla(j1: Jogador, j2: Jogador): string {
-    const [id1, id2] = j1.id < j2.id ? [j1.id, j2.id] : [j2.id, j1.id];
-    return `${id1}-${id2}`;
-  }
-
-  // Verifica se dupla já jogou antes
-  function jaJogaram(j1: Jogador, j2: Jogador): boolean {
-    return historicoConfrontos.has(gerarChaveDupla(j1, j2));
-  }
 
   useEffect(() => {
     async function fetchJogadores() {
@@ -49,21 +34,24 @@ export default function Page() {
     fetchJogadores();
   }, []);
 
+  // Busca maior etapa e carrega histórico de confrontos para evitar repetições
   useEffect(() => {
     async function fetchHistorico() {
       const { data, error } = await supabase
         .from("historico")
         .select("jogador1_id, jogador2_id, etapa")
         .order("etapa", { ascending: false });
-
       if (!error && data) {
-        const historicoData = data as HistoricoItem[];
-        const maiorEtapa = historicoData.length > 0 ? Math.max(...historicoData.map((d) => d.etapa)) : 0;
+        // Define a maior etapa para controle local (pode ajustar a partir daqui se quiser)
+        const maiorEtapa = data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
         setEtapaAtual(maiorEtapa + 1);
 
+        // Monta o set de pares já enfrentados, chave sempre menorID-maiorID para facilitar comparação
         const pares = new Set<string>();
-        historicoData.forEach(({ jogador1_id, jogador2_id }) => {
-          const [id1, id2] = jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
+        data.forEach(({ jogador1_id, jogador2_id }) => {
+          const [id1, id2] = jogador1_id < jogador2_id
+            ? [jogador1_id, jogador2_id]
+            : [jogador2_id, jogador1_id];
           pares.add(`${id1}-${id2}`);
         });
         setHistoricoConfrontos(pares);
@@ -82,11 +70,18 @@ export default function Page() {
     setSelecionados(selecionados.filter((j) => j.id !== jogador.id));
   }
 
-  function embaralhar<T>(array: T[]): T[] {
-    return [...array].sort(() => Math.random() - 0.5);
+  // Função auxiliar para verificar se dois jogadores já se enfrentaram
+  function jaJogaram(jog1: Jogador, jog2: Jogador): boolean {
+    const [id1, id2] = jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
+    return historicoConfrontos.has(`${id1}-${id2}`);
   }
 
-  // Backtracking para formar duplas válidas (sem repetir confrontos anteriores)
+  function embaralhar<T>(array: T[]): T[] {
+  return [...array].sort(() => Math.random() - 0.5);
+}
+  // Backtracking para formar duplas válidas:
+  // - todos jogam uma única vez
+  // - nenhum par se repetiu antes
   function encontrarDuplasValidas(
     jogadores: Jogador[],
     paresAtuais: Dupla[] = []
@@ -98,10 +93,14 @@ export default function Page() {
     for (let i = 0; i < restantes.length; i++) {
       const parceiro = restantes[i];
       if (!jaJogaram(primeiro, parceiro)) {
+        // Tenta formar dupla e continua
         const novaDupla = { jogador1: primeiro, jogador2: parceiro };
         const restantesFiltrados = restantes.filter((_, idx) => idx !== i);
 
-        const resultado = encontrarDuplasValidas(restantesFiltrados, [...paresAtuais, novaDupla]);
+        const resultado = encontrarDuplasValidas(
+          restantesFiltrados,
+          [...paresAtuais, novaDupla]
+        );
         if (resultado) return resultado;
       }
     }
@@ -118,14 +117,19 @@ export default function Page() {
       return;
     }
 
+    // Tenta encontrar duplas válidas com backtracking
     const duplasValidas = encontrarDuplasValidas(embaralhar(selecionados));
 
+
     if (!duplasValidas) {
-      setMensagem("Não foi possível formar duplas válidas sem repetir confrontos anteriores.");
+      setMensagem(
+        "Não foi possível formar duplas válidas sem repetir confrontos anteriores."
+      );
       setDuplas([]);
       return;
     }
 
+    // Embaralha as duplas válidas para variar a ordem
     const embaralhadas = duplasValidas.sort(() => Math.random() - 0.5);
 
     setDuplas(embaralhadas);
@@ -161,7 +165,7 @@ export default function Page() {
       setEtapaAtual(etapaAtual + 1);
       setDuplas([]);
       setSelecionados([]);
-
+      // Atualizar localmente o histórico para evitar que confrontos se repitam se continuar usando
       const novosPares = new Set(historicoConfrontos);
       inserts.forEach(({ jogador1_id, jogador2_id }) => {
         const [id1, id2] = jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
@@ -171,25 +175,8 @@ export default function Page() {
     }
   }
 
-  async function limparHistorico() {
-    const confirmar = confirm("Tem certeza que deseja limpar todo o histórico?");
-    if (!confirmar) return;
-
-    const { error } = await supabase.from("historico").delete().neq("id", 0);
-
-    if (error) {
-      setMensagem(`Erro ao limpar histórico: ${error.message}`);
-    } else {
-      setMensagem("Histórico limpo com sucesso.");
-      setDuplas([]);
-      setSelecionados([]);
-      setEtapaAtual(1);
-      setHistoricoConfrontos(new Set());
-    }
-  }
-
   return (
-    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6 bg-gray-100">
+    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6  bg-gray-100">
       {/* Jogadores cadastrados */}
       <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh]">
         <h2 className="text-lg font-semibold mb-4">Cadastrados</h2>
@@ -203,7 +190,9 @@ export default function Page() {
                   onClick={() => adicionarSelecionado(j)}
                   disabled={selecionado}
                   className={`px-2 py-1 rounded text-sm text-white transition ${
-                    selecionado ? "bg-gray-400 cursor-not-allowed" : "bg-blue-500 hover:bg-blue-600"
+                    selecionado
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-blue-500 hover:bg-blue-600"
                   }`}
                 >
                   {selecionado ? "Adicionado" : "Adicionar"}
@@ -223,9 +212,7 @@ export default function Page() {
           <ul className="space-y-2">
             {selecionados.map((j, i) => (
               <li key={j.id} className="flex items-center justify-between">
-                <span>
-                  {i + 1}. {j.nome}
-                </span>
+                <span>{i + 1}. {j.nome}</span>
                 <button
                   onClick={() => removerSelecionado(j)}
                   className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm"
@@ -268,22 +255,16 @@ export default function Page() {
             </button>
             <button
               onClick={gravarHistorico}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-2 rounded mb-4"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-2 rounded"
               disabled={duplas.length === 0}
             >
               Gravar Histórico
-            </button>
-            <button
-              onClick={limparHistorico}
-              className="bg-red-600 hover:bg-red-700 text-white w-full py-2 rounded"
-            >
-              Limpar Histórico
             </button>
           </div>
           {mensagem && (
             <p
               className={`mt-4 text-sm font-medium text-center ${
-                mensagem.toLowerCase().includes("erro") ? "text-red-600" : "text-green-600"
+                mensagem.includes("Erro") ? "text-red-600" : "text-green-600"
               }`}
             >
               {mensagem}

@@ -19,40 +19,40 @@ export default function HistoricoPage() {
   const [etapaAtualIndex, setEtapaAtualIndex] = useState(0);
 
   useEffect(() => {
-    const fetchHistorico = async () => {
-      const { data, error } = await supabase
-        .from("historico")
-        .select(
-          `
-          id,
-          etapa,
-          jogador1_id,
-          jogador2_id,
-          jogador1: jogador1_id ( nome ),
-          jogador2: jogador2_id ( nome )
-        `
-        )
-        .order("etapa", { ascending: true });
+  const fetchHistorico = async () => {
+    const { data, error } = await supabase
+      .from("historico")
+      .select(`
+        id,
+        etapa,
+        jogador1_id,
+        jogador2_id,
+        jogador1: jogador1_id ( nome ),
+        jogador2: jogador2_id ( nome )
+      `)
+      .order("etapa", { ascending: true });
 
-      if (error) {
-        console.error("Erro ao buscar histórico:", error.message);
-      } else {
-        const dados = data as Historico[];
-        setHistorico(dados);
+    if (error) {
+      console.error("Erro ao buscar histórico:", error.message);
+    } else if (data) {
+      const dados = (data as any[]).map(item => ({
+        ...item,
+        jogador1: item.jogador1?.[0] ?? { nome: "Desconhecido" },
+        jogador2: item.jogador2?.[0] ?? { nome: "Desconhecido" },
+      })) as Historico[];
 
-        // Extrai etapas únicas em ordem
-        const etapasUnicas = Array.from(
-          new Set(dados.map((h) => h.etapa))
-        ).sort((a, b) => a - b);
-        setEtapas(etapasUnicas);
-        setEtapaAtualIndex(0);
-      }
+      setHistorico(dados);
 
-      setLoading(false);
-    };
+      const etapasUnicas = Array.from(new Set(dados.map(h => h.etapa))).sort((a, b) => a - b);
+      setEtapas(etapasUnicas);
+      setEtapaAtualIndex(0);
+    }
 
-    fetchHistorico();
-  }, []);
+    setLoading(false);
+  };
+
+  fetchHistorico();
+}, []);
 
   const limparHistorico = async () => {
   const confirmar = confirm("Tem certeza que deseja limpar todo o histórico?");
