@@ -12,6 +12,15 @@ interface Historico {
   jogador2: { nome: string };
 }
 
+interface HistoricoRaw {
+  id: number;
+  etapa: number;
+  jogador1_id: number;
+  jogador2_id: number;
+  jogador1: { nome: string }[]; // array do Supabase
+  jogador2: { nome: string }[]; // array do Supabase
+}
+
 export default function HistoricoPage() {
   const [historico, setHistorico] = useState<Historico[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +28,7 @@ export default function HistoricoPage() {
   const [etapaAtualIndex, setEtapaAtualIndex] = useState(0);
 
   useEffect(() => {
-    const fetchHistorico = async () => {
+    async function fetchHistorico() {
       const { data, error } = await supabase
         .from("historico")
         .select(`
@@ -34,23 +43,21 @@ export default function HistoricoPage() {
 
       if (error) {
         console.error("Erro ao buscar histórico:", error.message);
-      } else if (data) {
-        const rawData = data as unknown as {
-          id: number;
-          etapa: number;
-          jogador1_id: number;
-          jogador2_id: number;
-          jogador1: { nome: string }[];
-          jogador2: { nome: string }[];
-        }[];
+        setLoading(false);
+        return;
+      }
 
-        const dados: Historico[] = rawData.map(item => ({
+      if (data) {
+        const rawData = data as HistoricoRaw[];
+
+        // Mapear para Historico, pegando primeiro elemento dos arrays de jogador1 e jogador2
+        const dados: Historico[] = rawData.map((item) => ({
           id: item.id,
           etapa: item.etapa,
           jogador1_id: item.jogador1_id,
           jogador2_id: item.jogador2_id,
-          jogador1: item.jogador1.length > 0 ? { nome: String(item.jogador1[0].nome) } : { nome: "Desconhecido" },
-          jogador2: item.jogador2.length > 0 ? { nome: String(item.jogador2[0].nome) } : { nome: "Desconhecido" },
+          jogador1: item.jogador1.length > 0 ? item.jogador1[0] : { nome: "Desconhecido" },
+          jogador2: item.jogador2.length > 0 ? item.jogador2[0] : { nome: "Desconhecido" },
         }));
 
         setHistorico(dados);
@@ -59,8 +66,9 @@ export default function HistoricoPage() {
         setEtapas(etapasUnicas);
         setEtapaAtualIndex(0);
       }
+
       setLoading(false);
-    };
+    }
 
     fetchHistorico();
   }, []);
@@ -83,13 +91,22 @@ export default function HistoricoPage() {
   if (loading) return <p>Carregando histórico...</p>;
   if (etapas.length === 0)
     return (
-      <main className="w-full h-screen flex flex-col items-center justify-center bg-gray-100 p-4">       
+      <main className="w-full h-screen flex flex-col items-center justify-center bg-gray-100 p-4">
+        <h1 className="text-2xl font-bold mb-4">Histórico de Confrontos</h1>
+        <div className="w-full flex justify-end mb-6">
+          <button
+            onClick={limparHistorico}
+            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+          >
+            Limpar Histórico
+          </button>
+        </div>
         <p>Nenhum confronto registrado ainda.</p>
       </main>
     );
 
   const etapaAtual = etapas[etapaAtualIndex];
-  const confrontosDaEtapa = historico.filter(h => h.etapa === etapaAtual);
+  const confrontosDaEtapa = historico.filter((h) => h.etapa === etapaAtual);
 
   return (
     <main className="w-full h-screen p-4 shadow flex flex-col justify-start items-center bg-gray-100">
@@ -144,7 +161,7 @@ export default function HistoricoPage() {
 
       <section className="mt-2 min-w-[700px] w-[50%] border border-gray-300 rounded-lg p-2 shadow-lg bg-white">
         <ul>
-          {confrontosDaEtapa.map(item => (
+          {confrontosDaEtapa.map((item) => (
             <li
               key={item.id}
               className="p-[4px] border-b flex justify-between items-center"
