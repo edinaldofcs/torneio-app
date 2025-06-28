@@ -19,79 +19,92 @@ export default function HistoricoPage() {
   const [etapaAtualIndex, setEtapaAtualIndex] = useState(0);
 
   useEffect(() => {
-  const fetchHistorico = async () => {
-    const { data, error } = await supabase
-      .from("historico")
-      .select(`
-        id,
-        etapa,
-        jogador1_id,
-        jogador2_id,
-        jogador1: jogador1_id ( nome ),
-        jogador2: jogador2_id ( nome )
-      `)
-      .order("etapa", { ascending: true });
+    const fetchHistorico = async () => {
+      const { data, error } = await supabase
+        .from("historico")
+        .select(`
+          id,
+          etapa,
+          jogador1_id,
+          jogador2_id,
+          jogador1: jogador1_id ( nome ),
+          jogador2: jogador2_id ( nome )
+        `)
+        .order("etapa", { ascending: true });
 
-    if (error) {
-      console.error("Erro ao buscar histórico:", error.message);
-    } else if (data) {
-      const dados = (data as any[]).map(item => ({
-        ...item,
-        jogador1: item.jogador1?.[0] ?? { nome: "Desconhecido" },
-        jogador2: item.jogador2?.[0] ?? { nome: "Desconhecido" },
-      })) as Historico[];
+      if (error) {
+        console.error("Erro ao buscar histórico:", error.message);
+      } else if (data) {
+        const rawData = data as unknown as {
+          id: number;
+          etapa: number;
+          jogador1_id: number;
+          jogador2_id: number;
+          jogador1: { nome: string }[];
+          jogador2: { nome: string }[];
+        }[];
 
-      setHistorico(dados);
+        const dados: Historico[] = rawData.map(item => ({
+          id: item.id,
+          etapa: item.etapa,
+          jogador1_id: item.jogador1_id,
+          jogador2_id: item.jogador2_id,
+          jogador1: item.jogador1.length > 0 ? { nome: String(item.jogador1[0].nome) } : { nome: "Desconhecido" },
+          jogador2: item.jogador2.length > 0 ? { nome: String(item.jogador2[0].nome) } : { nome: "Desconhecido" },
+        }));
 
-      const etapasUnicas = Array.from(new Set(dados.map(h => h.etapa))).sort((a, b) => a - b);
-      setEtapas(etapasUnicas);
-      setEtapaAtualIndex(0);
-    }
+        setHistorico(dados);
 
-    setLoading(false);
-  };
+        const etapasUnicas = Array.from(new Set(dados.map(h => h.etapa))).sort((a, b) => a - b);
+        setEtapas(etapasUnicas);
+        setEtapaAtualIndex(0);
+      }
+      setLoading(false);
+    };
 
-  fetchHistorico();
-}, []);
+    fetchHistorico();
+  }, []);
 
   const limparHistorico = async () => {
-  const confirmar = confirm("Tem certeza que deseja limpar todo o histórico?");
-  if (!confirmar) return;
+    const confirmar = confirm("Tem certeza que deseja limpar todo o histórico?");
+    if (!confirmar) return;
 
-  const { error } = await supabase.from("historico").delete().neq("id", 0);
-  if (error) {
-    console.error("Erro ao limpar histórico:", error.message);
-    return;
-  }
+    const { error } = await supabase.from("historico").delete().neq("id", 0);
+    if (error) {
+      console.error("Erro ao limpar histórico:", error.message);
+      return;
+    }
 
-  setHistorico([]);
-  setEtapas([]);
-  setEtapaAtualIndex(0);
-};
-
+    setHistorico([]);
+    setEtapas([]);
+    setEtapaAtualIndex(0);
+  };
 
   if (loading) return <p>Carregando histórico...</p>;
-  if (etapas.length === 0) return <p className="w-full h-full flex items-center justify-center"><span>Nenhum confronto registrado ainda.</span></p>;
+  if (etapas.length === 0)
+    return (
+      <main className="w-full h-screen flex flex-col items-center justify-center bg-gray-100 p-4">       
+        <p>Nenhum confronto registrado ainda.</p>
+      </main>
+    );
 
   const etapaAtual = etapas[etapaAtualIndex];
-  const confrontosDaEtapa = historico.filter((h) => h.etapa === etapaAtual);
+  const confrontosDaEtapa = historico.filter(h => h.etapa === etapaAtual);
 
   return (
     <main className="w-full h-screen p-4 shadow flex flex-col justify-start items-center bg-gray-100">
-      <h1 className="text-2xl font-bold text-center">
-        Histórico de Confrontos
-      </h1>
-      <div className="w-full flex justify-end mt-2">
-  <button
-    onClick={limparHistorico}
-    className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-  >
-    Limpar Histórico
-  </button>
-</div>
+      <h1 className="text-2xl font-bold text-center mb-4">Histórico de Confrontos</h1>
 
-      
-      <nav className="flex justify-center flex-wrap gap-4 mt-6 max-w-[700px] bg-white p-2 rounded shadow">
+      <div className="w-full flex justify-end mb-4">
+        <button
+          onClick={limparHistorico}
+          className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+        >
+          Limpar Histórico
+        </button>
+      </div>
+
+      <nav className="flex justify-center flex-wrap gap-4 mb-6 max-w-[700px] bg-white p-2 rounded shadow">
         <button
           onClick={() => setEtapaAtualIndex(0)}
           disabled={etapaAtualIndex === 0}
@@ -101,7 +114,7 @@ export default function HistoricoPage() {
         </button>
 
         <button
-          onClick={() => setEtapaAtualIndex((i) => Math.max(i - 1, 0))}
+          onClick={() => setEtapaAtualIndex(i => Math.max(i - 1, 0))}
           disabled={etapaAtualIndex === 0}
           className="px-4 py-2 bg-indigo-600 text-white rounded disabled:bg-gray-300"
         >
@@ -113,9 +126,7 @@ export default function HistoricoPage() {
         </span>
 
         <button
-          onClick={() =>
-            setEtapaAtualIndex((i) => Math.min(i + 1, etapas.length - 1))
-          }
+          onClick={() => setEtapaAtualIndex(i => Math.min(i + 1, etapas.length - 1))}
           disabled={etapaAtualIndex === etapas.length - 1}
           className="px-4 py-2 bg-indigo-600 text-white rounded disabled:bg-gray-300"
         >
@@ -132,12 +143,8 @@ export default function HistoricoPage() {
       </nav>
 
       <section className="mt-2 min-w-[700px] w-[50%] border border-gray-300 rounded-lg p-2 shadow-lg bg-white">
-        {/* <h2 className="text-lg font-semibold mb-2">
-          Etapa {etapaAtual}
-        </h2> */}
-
         <ul>
-          {confrontosDaEtapa.map((item) => (
+          {confrontosDaEtapa.map(item => (
             <li
               key={item.id}
               className="p-[4px] border-b flex justify-between items-center"
