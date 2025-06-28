@@ -38,18 +38,18 @@ export default function HistoricoPage() {
         return;
       }
 
-      const dadosConvertidos: Historico[] = (data || []).map((item: any) => ({
-        id: item.id,
-        etapa: item.etapa,
-        jogador1_id: item.jogador1_id,
-        jogador2_id: item.jogador2_id,
-        jogador1: item.jogador1[0] ?? item.jogador1 ??{ nome: "Desconhecido" },
-        jogador2: item.jogador2[0] ?? item.jogador2 ?? { nome: "Desconhecido" },
-      }));
+      const dados = (data as unknown as any[]).map((item) => ({
+    id: item.id,
+    etapa: item.etapa,
+    jogador1_id: item.jogador1_id,
+    jogador2_id: item.jogador2_id,
+    jogador1: item.jogador1?.[0] ?? item.jogador1 ?? { nome: "Desconhecido" },
+    jogador2: item.jogador2?.[0] ?? item.jogador2 ?? { nome: "Desconhecido" },
+  }));
 
-      setHistorico(dadosConvertidos);
+      setHistorico(dados);
 
-      const etapasUnicas = Array.from(new Set(dadosConvertidos.map(h => h.etapa))).sort((a, b) => a - b);
+      const etapasUnicas = Array.from(new Set(dados.map(h => h.etapa))).sort((a, b) => a - b);
       setEtapas(etapasUnicas);
       setEtapaAtualIndex(0);
       setLoading(false);
