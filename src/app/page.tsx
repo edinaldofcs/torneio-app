@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { CadastroList } from "@/components/ui/CadastroList";
+import { SelecionadosList } from "@/components/ui/SelecionadosList";
+import { DuplasList } from "@/components/ui/DuplasList";
+import { Acoes } from "@/components/ui/Acoes";
+import toast from "react-hot-toast";
 
 interface Jogador {
   id: number;
@@ -21,17 +26,11 @@ export default function Page() {
   const [mensagem, setMensagem] = useState("");
   const [paresManuais, setParesManuais] = useState<Dupla[]>([]);
   const [bufferParManual, setBufferParManual] = useState<Jogador | null>(null);
-
-  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(
-    new Set()
-  );
+  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     async function fetchJogadores() {
-      const { data, error } = await supabase
-        .from("jogadores")
-        .select("id, nome")
-        .order("nome", { ascending: true });
+      const { data, error } = await supabase.from("jogadores").select("id, nome").order("nome");
       if (!error && data) setCadastrados(data);
     }
     fetchJogadores();
@@ -44,16 +43,12 @@ export default function Page() {
         .select("jogador1_id, jogador2_id, etapa")
         .order("etapa", { ascending: false });
       if (!error && data) {
-        const maiorEtapa =
-          data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
+        const maiorEtapa = data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
         setEtapaAtual(maiorEtapa + 1);
 
         const pares = new Set<string>();
         data.forEach(({ jogador1_id, jogador2_id }) => {
-          const [id1, id2] =
-            jogador1_id < jogador2_id
-              ? [jogador1_id, jogador2_id]
-              : [jogador2_id, jogador1_id];
+          const [id1, id2] = jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
           pares.add(`${id1}-${id2}`);
         });
         setHistoricoConfrontos(pares);
@@ -69,13 +64,11 @@ export default function Page() {
     }
 
     if (ctrlKey) {
-      // Se já clicou um jogador antes, formamos o par
       if (bufferParManual) {
         const novoPar: Dupla = { jogador1: bufferParManual, jogador2: jogador };
         setParesManuais((prev) => [...prev, novoPar]);
         setBufferParManual(null);
       } else {
-        // Primeiro jogador do par manual
         setBufferParManual(jogador);
       }
     }
@@ -84,9 +77,7 @@ export default function Page() {
   function removerSelecionado(jogador: Jogador) {
     setSelecionados(selecionados.filter((j) => j.id !== jogador.id));
     setParesManuais(
-      paresManuais.filter(
-        (p) => p.jogador1.id !== jogador.id && p.jogador2.id !== jogador.id
-      )
+      paresManuais.filter((p) => p.jogador1.id !== jogador.id && p.jogador2.id !== jogador.id)
     );
     if (bufferParManual?.id === jogador.id) {
       setBufferParManual(null);
@@ -94,8 +85,7 @@ export default function Page() {
   }
 
   function jaJogaram(jog1: Jogador, jog2: Jogador): boolean {
-    const [id1, id2] =
-      jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
+    const [id1, id2] = jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
     return historicoConfrontos.has(`${id1}-${id2}`);
   }
 
@@ -103,10 +93,7 @@ export default function Page() {
     return [...array].sort(() => Math.random() - 0.5);
   }
 
-  function encontrarDuplasValidas(
-    jogadores: Jogador[],
-    paresAtuais: Dupla[] = []
-  ): Dupla[] | null {
+  function encontrarDuplasValidas(jogadores: Jogador[], paresAtuais: Dupla[] = []): Dupla[] | null {
     if (jogadores.length === 0) return paresAtuais;
 
     const [primeiro, ...restantes] = jogadores;
@@ -117,10 +104,7 @@ export default function Page() {
         const novaDupla = { jogador1: primeiro, jogador2: parceiro };
         const restantesFiltrados = restantes.filter((_, idx) => idx !== i);
 
-        const resultado = encontrarDuplasValidas(restantesFiltrados, [
-          ...paresAtuais,
-          novaDupla,
-        ]);
+        const resultado = encontrarDuplasValidas(restantesFiltrados, [...paresAtuais, novaDupla]);
         if (resultado) return resultado;
       }
     }
@@ -131,36 +115,41 @@ export default function Page() {
   function sortearDuplas() {
     setMensagem("");
 
-    const idsFixos = new Set(
-      paresManuais.flatMap((p) => [p.jogador1.id, p.jogador2.id])
-    );
+    const idsFixos = new Set(paresManuais.flatMap((p) => [p.jogador1.id, p.jogador2.id]));
 
     const jogadoresLivres = selecionados.filter((j) => !idsFixos.has(j.id));
 
     if (jogadoresLivres.length % 2 !== 0) {
-      setMensagem("Número de jogadores livres deve ser par.");
+      // setMensagem("Número de jogadores livres deve ser par.");
+      toast.error("Número de jogadores livres deve ser par.");
       setDuplas([]);
       return;
     }
 
     const duplasValidas = encontrarDuplasValidas(embaralhar(jogadoresLivres));
-
-    if (!duplasValidas) {
-      setMensagem("Não foi possível formar duplas válidas.");
+    
+    if (!duplasValidas || duplasValidas.length == 0) {
+      console.log('Entrou');
+      
+      // setMensagem("Não foi possível formar duplas válidas.");
+      toast.error("Não foi possível formar duplas válidas.");
       setDuplas([]);
       return;
     }
 
-    // Junta as duplas válidas com os pares manuais (que devem estar fixos e válidos)
+
     setDuplas([...duplasValidas, ...paresManuais]);
-    setMensagem("");
+
+    toast.success("Duplas sorteadas com sucesso!");
+    // setMensagem("");
   }
 
   async function gravarHistorico() {
     setMensagem("");
 
     if (duplas.length === 0) {
-      setMensagem("Não há duplas para gravar.");
+      // setMensagem("Não há duplas para gravar.");
+      toast.error("Não há duplas para gravar.");
       return;
     }
 
@@ -179,9 +168,11 @@ export default function Page() {
     const { error } = await supabase.from("historico").insert(inserts);
 
     if (error) {
-      setMensagem(`Erro ao gravar histórico: ${error.message}`);
+      // setMensagem(`Erro ao gravar histórico: ${error.message}`);
+      toast.error(`Erro ao gravar histórico: ${error.message}`);
     } else {
-      setMensagem(`Histórico gravado com sucesso! Etapa ${etapaAtual}`);
+      toast.success(`Histórico gravado com sucesso! Etapa ${etapaAtual}`);
+      // setMensagem(`Histórico gravado com sucesso! Etapa ${etapaAtual}`);
       setEtapaAtual(etapaAtual + 1);
       setDuplas([]);
       setSelecionados([]);
@@ -191,115 +182,27 @@ export default function Page() {
       const novosPares = new Set(historicoConfrontos);
       inserts.forEach(({ jogador1_id, jogador2_id }) => {
         const [id1, id2] =
-          jogador1_id < jogador2_id
-            ? [jogador1_id, jogador2_id]
-            : [jogador2_id, jogador1_id];
+          jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
         novosPares.add(`${id1}-${id2}`);
       });
       setHistoricoConfrontos(novosPares);
     }
   }
+
   return (
-    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6 ">
+    <>
+    <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6">
       <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-10 -z-2" />
-
-      {/* Jogadores cadastrados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2 text-black">
-        <h2 className="text-lg font-semibold mb-4">Cadastrados</h2>
-        <ul className="space-y-2">
-          {cadastrados.map((j) => {
-            const selecionado = selecionados.some((s) => s.id === j.id);
-            return (
-              <li key={j.id} className="flex items-center justify-between">
-                <span>{j.nome}</span>
-                <button
-                  onClick={(e) => adicionarSelecionado(j, e.ctrlKey)}
-                  disabled={selecionado}
-                  className={`px-2 py-1 rounded text-sm text-white transition ${
-                    selecionado
-                      ? "bg-gray-400 cursor-not-allowed"
-                      : "bg-blue-500 hover:bg-blue-600"
-                  }`}
-                >
-                  {selecionado ? "Adicionado" : "Adicionar"}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
-
-      {/* Selecionados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2 text-black">
-        <h2 className="text-lg font-semibold mb-4">Selecionados</h2>
-        {selecionados.length === 0 ? (
-          <p className="text-gray-500">Nenhum selecionado.</p>
-        ) : (
-          <ul className="space-y-2">
-            {selecionados.map((j, i) => (
-              <li key={j.id} className="flex items-center justify-between">
-                <span>
-                  {i + 1}. {j.nome}
-                </span>
-                <button
-                  onClick={() => removerSelecionado(j)}
-                  className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm"
-                >
-                  Remover
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      {/* Duplas sorteadas */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] col-span-1 z-2 text-black">
-        <h2 className="text-lg font-semibold mb-4">Duplas Sorteadas</h2>
-        {duplas.length === 0 ? (
-          <p className="text-gray-500">Nenhuma dupla sorteada ainda.</p>
-        ) : (
-          <ol className="list-decimal list-inside space-y-1">
-            {duplas.map((d, idx) => (
-              <li key={idx}>
-                {d.jogador1.nome} &amp; {d.jogador2.nome}
-              </li>
-            ))}
-          </ol>
-        )}
-      </section>
-
-      {/* Botões */}
-      <section className="flex flex-col justify-between h-1/2 z-2 text-black">
-        <div className="bg-white rounded-lg shadow p-4 h-full flex flex-col justify-between">
-          <div>
-            <h2 className="text-lg font-semibold mb-4">Ação</h2>
-            <p className="text-gray-600 mb-6">Etapa atual: {etapaAtual}</p>
-            <button
-              onClick={sortearDuplas}
-              className="bg-green-600 hover:bg-green-700 text-white w-full py-2 rounded mb-4"
-            >
-              Sortear Duplas
-            </button>
-            <button
-              onClick={gravarHistorico}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white w-full py-2 rounded"
-              disabled={duplas.length === 0}
-            >
-              Gravar Histórico
-            </button>
-          </div>
-          {mensagem && (
-            <p
-              className={`mt-4 text-sm font-medium text-center ${
-                mensagem.includes("Erro") ? "text-red-600" : "text-green-600"
-              }`}
-            >
-              {mensagem}
-            </p>
-          )}
-        </div>
-      </section>
+      <CadastroList cadastrados={cadastrados} selecionados={selecionados} onAdicionar={adicionarSelecionado} />
+      <SelecionadosList selecionados={selecionados} onRemover={removerSelecionado} />
+      <DuplasList duplas={duplas} />
+      <Acoes
+        etapaAtual={etapaAtual}
+        duplasCount={duplas.length}
+        onSortear={sortearDuplas}
+        onGravar={gravarHistorico}
+      />
     </main>
+    </>
   );
 }
