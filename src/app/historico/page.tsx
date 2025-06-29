@@ -38,17 +38,21 @@ export default function HistoricoPage() {
 
   if (loading)
     return (
-      <p className="w-full h-full flex items-center justify-center">
+      <>
         <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
-        <span>Carregando histórico...</span>
-      </p>
+        <p className="w-full h-full flex items-center justify-center">
+          <span>Carregando histórico...</span>
+        </p>
+      </>
     );
   if (etapas.length === 0)
     return (
-      <p className="w-full h-full flex items-center justify-center">
+      <>
         <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
-        <span>Nenhum confronto registrado ainda.</span>
-      </p>
+        <p className="w-full h-full flex items-center justify-center">
+          <span>Nenhum confronto registrado ainda.</span>
+        </p>
+      </>
     );
 
   const etapaAtual = etapas[etapaAtualIndex];
@@ -65,7 +69,9 @@ export default function HistoricoPage() {
       />
       <main className="w-full h-screen p-4 shadow flex flex-col justify-start items-center">
         <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
-        <h1 className="text-2xl font-bold text-center">Histórico de Confrontos</h1>
+        <h1 className="text-2xl font-bold text-center">
+          Histórico de Confrontos
+        </h1>
 
         <HistoricoActions
           onExport={() => downloadCSV(gerarCSV(historico))}
