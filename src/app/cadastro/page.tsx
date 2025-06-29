@@ -102,13 +102,48 @@ export default function Cadastro() {
     }
   }
 
+  // Gera CSV a partir do array jogadores
+  function gerarCSV(jogadores: Jogador[]) {
+    const headers = ["id", "nome"];
+    const linhas = jogadores.map((j) => [
+      j.id.toString(),
+      `"${j.nome.replace(/"/g, '""')}"`
+    ]);
+
+    return [headers, ...linhas]
+      .map((linha) => linha.join(","))
+      .join("\r\n");
+  }
+
+  // Dispara download do CSV
+  function downloadCSV() {
+    const csv = gerarCSV(jogadores);
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "jogadores.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <main className="w-full mx-auto p-6 flex flex-col justify-between gap-10 md:flex-row">
       <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
       {/* Lista numerada e editável */}
       <section className="w-1/2 bg-white border border-gray-200 rounded-lg shadow-md p-6 overflow-auto max-h-[600px]">
-        <h2 className="text-2xl font-semibold mb-6 text-gray-800">
+        <h2 className="text-2xl font-semibold mb-6 text-gray-800 flex justify-between items-center">
           Jogadores Cadastrados
+          <button
+            onClick={downloadCSV}
+            className="ml-4 bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded-md transition"
+            title="Exportar lista como CSV"
+          >
+            Exportar CSV
+          </button>
         </h2>
         {jogadores.length === 0 ? (
           <p className="text-gray-500">Nenhum jogador cadastrado.</p>

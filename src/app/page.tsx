@@ -19,9 +19,12 @@ export default function Page() {
   const [duplas, setDuplas] = useState<Dupla[]>([]);
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [mensagem, setMensagem] = useState("");
+  const [paresManuais, setParesManuais] = useState<Dupla[]>([]);
+  const [bufferParManual, setBufferParManual] = useState<Jogador | null>(null);
 
-  // Histórico de confrontos: pares de ids já enfrentados (chave "id1-id2" ordenados)
-  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(new Set());
+  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     async function fetchJogadores() {
@@ -34,7 +37,6 @@ export default function Page() {
     fetchJogadores();
   }, []);
 
-  // Busca maior etapa e carrega histórico de confrontos para evitar repetições
   useEffect(() => {
     async function fetchHistorico() {
       const { data, error } = await supabase
@@ -42,16 +44,16 @@ export default function Page() {
         .select("jogador1_id, jogador2_id, etapa")
         .order("etapa", { ascending: false });
       if (!error && data) {
-        // Define a maior etapa para controle local (pode ajustar a partir daqui se quiser)
-        const maiorEtapa = data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
+        const maiorEtapa =
+          data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
         setEtapaAtual(maiorEtapa + 1);
 
-        // Monta o set de pares já enfrentados, chave sempre menorID-maiorID para facilitar comparação
         const pares = new Set<string>();
         data.forEach(({ jogador1_id, jogador2_id }) => {
-          const [id1, id2] = jogador1_id < jogador2_id
-            ? [jogador1_id, jogador2_id]
-            : [jogador2_id, jogador1_id];
+          const [id1, id2] =
+            jogador1_id < jogador2_id
+              ? [jogador1_id, jogador2_id]
+              : [jogador2_id, jogador1_id];
           pares.add(`${id1}-${id2}`);
         });
         setHistoricoConfrontos(pares);
@@ -60,29 +62,47 @@ export default function Page() {
     fetchHistorico();
   }, []);
 
-  function adicionarSelecionado(jogador: Jogador) {
-    if (!selecionados.some((j) => j.id === jogador.id)) {
-      setSelecionados([...selecionados, jogador]);
+  function adicionarSelecionado(jogador: Jogador, ctrlKey = false) {
+    const jaSelecionado = selecionados.some((j) => j.id === jogador.id);
+    if (!jaSelecionado) {
+      setSelecionados((prev) => [...prev, jogador]);
+    }
+
+    if (ctrlKey) {
+      // Se já clicou um jogador antes, formamos o par
+      if (bufferParManual) {
+        const novoPar: Dupla = { jogador1: bufferParManual, jogador2: jogador };
+        setParesManuais((prev) => [...prev, novoPar]);
+        setBufferParManual(null);
+      } else {
+        // Primeiro jogador do par manual
+        setBufferParManual(jogador);
+      }
     }
   }
 
   function removerSelecionado(jogador: Jogador) {
     setSelecionados(selecionados.filter((j) => j.id !== jogador.id));
+    setParesManuais(
+      paresManuais.filter(
+        (p) => p.jogador1.id !== jogador.id && p.jogador2.id !== jogador.id
+      )
+    );
+    if (bufferParManual?.id === jogador.id) {
+      setBufferParManual(null);
+    }
   }
 
-  // Função auxiliar para verificar se dois jogadores já se enfrentaram
   function jaJogaram(jog1: Jogador, jog2: Jogador): boolean {
-    const [id1, id2] = jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
+    const [id1, id2] =
+      jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
     return historicoConfrontos.has(`${id1}-${id2}`);
   }
 
   function embaralhar<T>(array: T[]): T[] {
-  return [...array].sort(() => Math.random() - 0.5);
-}
+    return [...array].sort(() => Math.random() - 0.5);
+  }
 
-  // Backtracking para formar duplas válidas:
-  // - todos jogam uma única vez
-  // - nenhum par se repetiu antes
   function encontrarDuplasValidas(
     jogadores: Jogador[],
     paresAtuais: Dupla[] = []
@@ -94,46 +114,45 @@ export default function Page() {
     for (let i = 0; i < restantes.length; i++) {
       const parceiro = restantes[i];
       if (!jaJogaram(primeiro, parceiro)) {
-        // Tenta formar dupla e continua
         const novaDupla = { jogador1: primeiro, jogador2: parceiro };
         const restantesFiltrados = restantes.filter((_, idx) => idx !== i);
 
-        const resultado = encontrarDuplasValidas(
-          restantesFiltrados,
-          [...paresAtuais, novaDupla]
-        );
+        const resultado = encontrarDuplasValidas(restantesFiltrados, [
+          ...paresAtuais,
+          novaDupla,
+        ]);
         if (resultado) return resultado;
       }
     }
 
-    return null; // não achou combinação válida
+    return null;
   }
 
   function sortearDuplas() {
     setMensagem("");
 
-    if (selecionados.length < 2 || selecionados.length % 2 !== 0) {
-      setMensagem("Número de jogadores deve ser par e no mínimo 2.");
+    const idsFixos = new Set(
+      paresManuais.flatMap((p) => [p.jogador1.id, p.jogador2.id])
+    );
+
+    const jogadoresLivres = selecionados.filter((j) => !idsFixos.has(j.id));
+
+    if (jogadoresLivres.length % 2 !== 0) {
+      setMensagem("Número de jogadores livres deve ser par.");
       setDuplas([]);
       return;
     }
 
-    // Tenta encontrar duplas válidas com backtracking
-    const duplasValidas = encontrarDuplasValidas(embaralhar(selecionados));
-
+    const duplasValidas = encontrarDuplasValidas(embaralhar(jogadoresLivres));
 
     if (!duplasValidas) {
-      setMensagem(
-        "Não foi possível formar duplas válidas sem repetir confrontos anteriores."
-      );
+      setMensagem("Não foi possível formar duplas válidas.");
       setDuplas([]);
       return;
     }
 
-    // Embaralha as duplas válidas para variar a ordem
-    const embaralhadas = duplasValidas.sort(() => Math.random() - 0.5);
-
-    setDuplas(embaralhadas);
+    // Junta as duplas válidas com os pares manuais (que devem estar fixos e válidos)
+    setDuplas([...duplasValidas, ...paresManuais]);
     setMensagem("");
   }
 
@@ -157,32 +176,35 @@ export default function Page() {
       };
     });
 
-    const { error: insertError } = await supabase.from("historico").insert(inserts);
+    const { error } = await supabase.from("historico").insert(inserts);
 
-    if (insertError) {
-      setMensagem(`Erro ao gravar histórico: ${insertError.message}`);
+    if (error) {
+      setMensagem(`Erro ao gravar histórico: ${error.message}`);
     } else {
       setMensagem(`Histórico gravado com sucesso! Etapa ${etapaAtual}`);
       setEtapaAtual(etapaAtual + 1);
       setDuplas([]);
       setSelecionados([]);
-      // Atualizar localmente o histórico para evitar que confrontos se repitam se continuar usando
+      setParesManuais([]);
+      setBufferParManual(null);
+
       const novosPares = new Set(historicoConfrontos);
       inserts.forEach(({ jogador1_id, jogador2_id }) => {
-        const [id1, id2] = jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
+        const [id1, id2] =
+          jogador1_id < jogador2_id
+            ? [jogador1_id, jogador2_id]
+            : [jogador2_id, jogador1_id];
         novosPares.add(`${id1}-${id2}`);
       });
       setHistoricoConfrontos(novosPares);
     }
   }
-
   return (
-    
     <main className="w-full h-full p-6 grid grid-cols-1 md:grid-cols-4 gap-6 ">
-        <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-10 -z-2" />
+      <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-10 -z-2" />
 
       {/* Jogadores cadastrados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2 text-black">
         <h2 className="text-lg font-semibold mb-4">Cadastrados</h2>
         <ul className="space-y-2">
           {cadastrados.map((j) => {
@@ -191,7 +213,7 @@ export default function Page() {
               <li key={j.id} className="flex items-center justify-between">
                 <span>{j.nome}</span>
                 <button
-                  onClick={() => adicionarSelecionado(j)}
+                  onClick={(e) => adicionarSelecionado(j, e.ctrlKey)}
                   disabled={selecionado}
                   className={`px-2 py-1 rounded text-sm text-white transition ${
                     selecionado
@@ -208,7 +230,7 @@ export default function Page() {
       </section>
 
       {/* Selecionados */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] z-2 text-black">
         <h2 className="text-lg font-semibold mb-4">Selecionados</h2>
         {selecionados.length === 0 ? (
           <p className="text-gray-500">Nenhum selecionado.</p>
@@ -216,7 +238,9 @@ export default function Page() {
           <ul className="space-y-2">
             {selecionados.map((j, i) => (
               <li key={j.id} className="flex items-center justify-between">
-                <span>{i + 1}. {j.nome}</span>
+                <span>
+                  {i + 1}. {j.nome}
+                </span>
                 <button
                   onClick={() => removerSelecionado(j)}
                   className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-sm"
@@ -230,7 +254,7 @@ export default function Page() {
       </section>
 
       {/* Duplas sorteadas */}
-      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] col-span-1 z-2">
+      <section className="bg-white rounded-lg shadow p-4 overflow-auto max-h-[80vh] col-span-1 z-2 text-black">
         <h2 className="text-lg font-semibold mb-4">Duplas Sorteadas</h2>
         {duplas.length === 0 ? (
           <p className="text-gray-500">Nenhuma dupla sorteada ainda.</p>
@@ -246,7 +270,7 @@ export default function Page() {
       </section>
 
       {/* Botões */}
-      <section className="flex flex-col justify-between h-1/2 z-2">
+      <section className="flex flex-col justify-between h-1/2 z-2 text-black">
         <div className="bg-white rounded-lg shadow p-4 h-full flex flex-col justify-between">
           <div>
             <h2 className="text-lg font-semibold mb-4">Ação</h2>
