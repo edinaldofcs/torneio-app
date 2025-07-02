@@ -20,17 +20,45 @@ interface Dupla {
 
 export default function Page() {
   const [cadastrados, setCadastrados] = useState<Jogador[]>([]);
-  const [selecionados, setSelecionados] = useState<Jogador[]>([]);
-  const [duplas, setDuplas] = useState<Dupla[]>([]);
+  const [selecionados, setSelecionados] = useState<Jogador[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const armazenados = localStorage.getItem("selecionados");
+        return armazenados ? JSON.parse(armazenados) : [];
+      } catch (e) {
+        console.error("Erro ao carregar selecionados:", e);
+        return [];
+      }
+    }
+    return [];
+  });
+  const [duplas, setDuplas] = useState<Dupla[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const armazenadas = localStorage.getItem("duplas");
+        return armazenadas ? JSON.parse(armazenadas) : [];
+      } catch (e) {
+        console.error("Erro ao carregar duplas:", e);
+        return [];
+      }
+    }
+    return [];
+  });
+
   const [etapaAtual, setEtapaAtual] = useState(1);
   const [mensagem, setMensagem] = useState("");
   const [paresManuais, setParesManuais] = useState<Dupla[]>([]);
   const [bufferParManual, setBufferParManual] = useState<Jogador | null>(null);
-  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(new Set());
+  const [historicoConfrontos, setHistoricoConfrontos] = useState<Set<string>>(
+    new Set()
+  );
 
   useEffect(() => {
     async function fetchJogadores() {
-      const { data, error } = await supabase.from("jogadores").select("id, nome").order("nome");
+      const { data, error } = await supabase
+        .from("jogadores")
+        .select("id, nome")
+        .order("nome");
       if (!error && data) setCadastrados(data);
     }
     fetchJogadores();
@@ -43,12 +71,16 @@ export default function Page() {
         .select("jogador1_id, jogador2_id, etapa")
         .order("etapa", { ascending: false });
       if (!error && data) {
-        const maiorEtapa = data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
+        const maiorEtapa =
+          data.length > 0 ? Math.max(...data.map((d) => d.etapa)) : 0;
         setEtapaAtual(maiorEtapa + 1);
 
         const pares = new Set<string>();
         data.forEach(({ jogador1_id, jogador2_id }) => {
-          const [id1, id2] = jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
+          const [id1, id2] =
+            jogador1_id < jogador2_id
+              ? [jogador1_id, jogador2_id]
+              : [jogador2_id, jogador1_id];
           pares.add(`${id1}-${id2}`);
         });
         setHistoricoConfrontos(pares);
@@ -74,10 +106,46 @@ export default function Page() {
     }
   }
 
+  // Restaurar selecionados e duplas ao carregar a página
+  useEffect(() => {
+    try {
+      const armazenadosSelecionados = localStorage.getItem(
+        "selecionados"
+      );
+      if (armazenadosSelecionados) {
+        const parsedSelecionados = JSON.parse(armazenadosSelecionados);
+        if (Array.isArray(parsedSelecionados)) {
+          setSelecionados(parsedSelecionados);
+        }
+      }
+
+      const armazenadasDuplas = localStorage.getItem("duplas");
+      if (armazenadasDuplas) {
+        const parsedDuplas = JSON.parse(armazenadasDuplas);
+        if (Array.isArray(parsedDuplas)) {
+          setDuplas(parsedDuplas);
+        }
+      }
+    } catch (error) {
+      console.error("Erro ao restaurar dados do localStorage:", error);
+    }
+  }, []);
+
+  // Salvar selecionados no localStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem("selecionados", JSON.stringify(selecionados));
+  }, [selecionados]);
+
+  useEffect(() => {
+    localStorage.setItem("duplas", JSON.stringify(duplas));
+  }, [duplas]);
+
   function removerSelecionado(jogador: Jogador) {
     setSelecionados(selecionados.filter((j) => j.id !== jogador.id));
     setParesManuais(
-      paresManuais.filter((p) => p.jogador1.id !== jogador.id && p.jogador2.id !== jogador.id)
+      paresManuais.filter(
+        (p) => p.jogador1.id !== jogador.id && p.jogador2.id !== jogador.id
+      )
     );
     if (bufferParManual?.id === jogador.id) {
       setBufferParManual(null);
@@ -85,7 +153,8 @@ export default function Page() {
   }
 
   function jaJogaram(jog1: Jogador, jog2: Jogador): boolean {
-    const [id1, id2] = jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
+    const [id1, id2] =
+      jog1.id < jog2.id ? [jog1.id, jog2.id] : [jog2.id, jog1.id];
     return historicoConfrontos.has(`${id1}-${id2}`);
   }
 
@@ -93,7 +162,10 @@ export default function Page() {
     return [...array].sort(() => Math.random() - 0.5);
   }
 
-  function encontrarDuplasValidas(jogadores: Jogador[], paresAtuais: Dupla[] = []): Dupla[] | null {
+  function encontrarDuplasValidas(
+    jogadores: Jogador[],
+    paresAtuais: Dupla[] = []
+  ): Dupla[] | null {
     if (jogadores.length === 0) return paresAtuais;
 
     const [primeiro, ...restantes] = jogadores;
@@ -104,7 +176,10 @@ export default function Page() {
         const novaDupla = { jogador1: primeiro, jogador2: parceiro };
         const restantesFiltrados = restantes.filter((_, idx) => idx !== i);
 
-        const resultado = encontrarDuplasValidas(restantesFiltrados, [...paresAtuais, novaDupla]);
+        const resultado = encontrarDuplasValidas(restantesFiltrados, [
+          ...paresAtuais,
+          novaDupla,
+        ]);
         if (resultado) return resultado;
       }
     }
@@ -115,7 +190,9 @@ export default function Page() {
   function sortearDuplas() {
     setMensagem("");
 
-    const idsFixos = new Set(paresManuais.flatMap((p) => [p.jogador1.id, p.jogador2.id]));
+    const idsFixos = new Set(
+      paresManuais.flatMap((p) => [p.jogador1.id, p.jogador2.id])
+    );
 
     const jogadoresLivres = selecionados.filter((j) => !idsFixos.has(j.id));
 
@@ -127,16 +204,15 @@ export default function Page() {
     }
 
     const duplasValidas = encontrarDuplasValidas(embaralhar(jogadoresLivres));
-    
+
     if (!duplasValidas || duplasValidas.length == 0) {
-      console.log('Entrou');
-      
+      console.log("Entrou");
+
       // setMensagem("Não foi possível formar duplas válidas.");
       toast.error("Não foi possível formar duplas válidas.");
       setDuplas([]);
       return;
     }
-
 
     setDuplas([...duplasValidas, ...paresManuais]);
 
@@ -179,10 +255,15 @@ export default function Page() {
       setParesManuais([]);
       setBufferParManual(null);
 
+      localStorage.removeItem("duplas");
+      localStorage.removeItem("selecionados");
+
       const novosPares = new Set(historicoConfrontos);
       inserts.forEach(({ jogador1_id, jogador2_id }) => {
         const [id1, id2] =
-          jogador1_id < jogador2_id ? [jogador1_id, jogador2_id] : [jogador2_id, jogador1_id];
+          jogador1_id < jogador2_id
+            ? [jogador1_id, jogador2_id]
+            : [jogador2_id, jogador1_id];
         novosPares.add(`${id1}-${id2}`);
       });
       setHistoricoConfrontos(novosPares);
