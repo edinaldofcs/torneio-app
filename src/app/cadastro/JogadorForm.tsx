@@ -25,7 +25,7 @@ export default function JogadorForm({
           value={nome}
           onChange={(e) => setNome(e.target.value)}
           required
-          className="border border-gray-300 rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="border border-gray-300 text-black rounded-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <button
           type="submit"
