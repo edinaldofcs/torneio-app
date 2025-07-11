@@ -159,8 +159,13 @@ export default function Page() {
   }
 
   function embaralhar<T>(array: T[]): T[] {
-    return [...array].sort(() => Math.random() - 0.5);
+  const novoArray = [...array];
+  for (let i = novoArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [novoArray[i], novoArray[j]] = [novoArray[j], novoArray[i]];
   }
+  return novoArray;
+}
 
   function encontrarDuplasValidas(
     jogadores: Jogador[],
@@ -214,7 +219,9 @@ export default function Page() {
       return;
     }
 
-    setDuplas([...duplasValidas, ...paresManuais]);
+    
+
+    setDuplas(embaralhar([...duplasValidas, ...paresManuais]));
 
     toast.success("Duplas sorteadas com sucesso!");
     // setMensagem("");

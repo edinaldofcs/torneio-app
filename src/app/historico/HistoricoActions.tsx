@@ -1,9 +1,10 @@
 interface Props {
   onExport: () => void;
   onClear: () => void;
+  onDeleteLast: () => void;
 }
 
-export default function HistoricoActions({ onExport, onClear }: Props) {
+export default function HistoricoActions({ onExport, onClear,onDeleteLast }: Props) {
   return (
     <div className="w-full flex justify-end mt-2 gap-2">
       <button
@@ -17,6 +18,12 @@ export default function HistoricoActions({ onExport, onClear }: Props) {
         className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
       >
         Limpar Histórico
+      </button>
+      <button
+        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
+        onClick={onDeleteLast}
+      >
+        Deletar Último
       </button>
     </div>
   );

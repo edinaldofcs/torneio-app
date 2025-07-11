@@ -20,20 +20,79 @@ export default function HistoricoPage() {
     setEtapas,
   } = useHistorico();
 
+  // Estado para controlar o modal de confirmação e mensagem
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const limparHistorico = async () => {
-    setConfirmOpen(true);
+  // Estado para guardar a ação a ser executada após confirmação
+  const [acaoConfirmada, setAcaoConfirmada] = useState<(() => Promise<void>) | null>(null);
+
+
+  // Função genérica para abrir o modal, definindo mensagem e ação
+  const abrirConfirmacao = (msg: string, acao: () => Promise<void>) => {
+  setMessage(msg);
+  setAcaoConfirmada(() => acao);
+  setConfirmOpen(true);
+};
+
+
+  // Função chamada quando usuário confirma no modal
+  const onConfirm = async () => {
+    setConfirmOpen(false);
+    if (acaoConfirmada) {
+      await acaoConfirmada();
+      setAcaoConfirmada(null);
+    }
   };
 
-  const confirmarLimpeza = async () => {
-    setConfirmOpen(false);
-    const { error } = await supabase.from("historico").delete().neq("id", 0);
-    if (error) return console.error("Erro ao limpar:", error.message);
+  // Limpar todo o histórico
+  const limparHistorico = () => {
+    abrirConfirmacao(
+      "Tem certeza que deseja limpar todo o histórico? Essa ação não poderá ser desfeita.",
+      async () => {
+        const { error } = await supabase.from("historico").delete().neq("id", 0);
+        if (error) {
+          console.error("Erro ao limpar:", error.message);
+          return;
+        }
 
-    setHistorico([]);
-    setEtapas([]);
-    setEtapaAtualIndex(0);
+        setHistorico([]);
+        setEtapas([]);
+        setEtapaAtualIndex(0);
+      }
+    );
+  };
+
+  // Deletar confrontos da última etapa
+  const deletarUltimoHistorico = () => {
+    if (historico.length === 0) return;
+
+    const ultimaEtapa = Math.max(...historico.map((h) => Number(h.etapa)));
+
+    abrirConfirmacao(
+      "Tem certeza que deseja deletar todos os confrontos da última etapa? Essa ação não poderá ser desfeita.",
+      async () => {
+        const { error } = await supabase
+          .from("historico")
+          .delete()
+          .eq("etapa", ultimaEtapa);
+
+        if (error) {
+          console.error("Erro ao deletar último histórico:", error.message);
+          return;
+        }
+
+        const novoHistorico = historico.filter((h) => h.etapa !== ultimaEtapa);
+        setHistorico(novoHistorico);
+
+        const novasEtapas = [...new Set(novoHistorico.map((h) => h.etapa))];
+        setEtapas(novasEtapas);
+
+        if (etapaAtualIndex >= novasEtapas.length) {
+          setEtapaAtualIndex(Math.max(novasEtapas.length - 1, 0));
+        }
+      }
+    );
   };
 
   if (loading)
@@ -45,6 +104,7 @@ export default function HistoricoPage() {
         </p>
       </>
     );
+
   if (etapas.length === 0)
     return (
       <>
@@ -62,20 +122,20 @@ export default function HistoricoPage() {
     <>
       <ConfirmDialog
         isOpen={confirmOpen}
-        title="Limpar Histórico"
-        message="Tem certeza que deseja limpar todo o histórico? Essa ação não poderá ser desfeita."
+        title="Confirmação"
+        message={message}
         onCancel={() => setConfirmOpen(false)}
-        onConfirm={confirmarLimpeza}
+        onConfirm={onConfirm}
       />
+
       <main className="w-full h-screen p-4 shadow flex flex-col justify-start items-center">
         <div className="absolute inset-0 bg-[url('/logo.jpg')] bg-cover bg-center opacity-5 -z-2" />
-        <h1 className="text-2xl font-bold text-center">
-          Histórico de Confrontos
-        </h1>
+        <h1 className="text-2xl font-bold text-center">Histórico de Confrontos</h1>
 
         <HistoricoActions
           onExport={() => downloadCSV(gerarCSV(historico))}
           onClear={limparHistorico}
+          onDeleteLast={deletarUltimoHistorico}
         />
 
         <EtapaNavegacao

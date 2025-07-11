@@ -46,6 +46,7 @@ export function useHistorico() {
       setEtapas([...new Set(dados.map((h) => h.etapa))].sort((a, b) => a - b));
       setEtapaAtualIndex(0);
       setLoading(false);
+      
     };
 
     fetchHistorico();
